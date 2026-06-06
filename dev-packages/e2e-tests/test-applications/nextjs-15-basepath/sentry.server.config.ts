@@ -5,6 +5,7 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_E2E_TEST_DSN,
   tunnel: `http://localhost:3031/`, // proxy server
   tracesSampleRate: 1.0,
+  dataCollection: { userInfo: true },
   ...(process.env.E2E_USE_SENTRY_TRACE_PROVIDER === '1'
     ? {
         _experiments: {
@@ -12,7 +13,6 @@ Sentry.init({
         },
       }
     : {}),
-  sendDefaultPii: true,
   transportOptions: {
     // We are doing a lot of events at once in this test
     bufferSize: 1000,

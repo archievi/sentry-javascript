@@ -14,7 +14,7 @@ export function register() {
             },
           }
         : {}),
-      sendDefaultPii: true,
+      dataCollection: { userInfo: true },
       transportOptions: {
         // We are doing a lot of events at once in this test app
         bufferSize: 1000,
