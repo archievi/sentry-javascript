@@ -23,7 +23,7 @@ import {
   spanToJSON,
   SPAN_STATUS_ERROR,
   SPAN_STATUS_OK,
-  startInactiveSpan,
+  _INTERNAL_startInactiveSpan,
   startNewTrace,
   withScope,
 } from '@sentry/core';
@@ -34,16 +34,6 @@ import { setIsSetup } from './utils/setupCheck';
 
 type SentrySpanWithOtelKind = Span & { kind?: SpanKind };
 type SentrySpanWithOtelSourceInference = Span & { _sentryOtelInferSource?: boolean };
-type SentryTraceProviderSpan = Span & { _sentryTraceProviderSpan?: true };
-
-export function isSentryTraceProviderSpan(span: Span | undefined): boolean {
-  return (span as SentryTraceProviderSpan | undefined)?._sentryTraceProviderSpan === true;
-}
-
-function markSentryTraceProviderSpan(span: Span): Span {
-  addNonEnumerableProperty(span as SentryTraceProviderSpan, '_sentryTraceProviderSpan', true);
-  return span;
-}
 
 const HTTP_RESPONSE_STATUS_CODE_ATTRIBUTE = 'http.response.status_code';
 const LEGACY_HTTP_RESPONSE_STATUS_CODE_ATTRIBUTE = 'http.status_code';
@@ -137,7 +127,7 @@ class SentryTracer implements Tracer {
 
     return context.with(parentContext, () => {
       const span = this._startSentrySpan(name, options, parentSpan, ctx !== undefined);
-      markSentryTraceProviderSpan(span);
+
       applyOtelSpanKind(span, options.kind);
       if (options.attributes?.[SEMANTIC_ATTRIBUTE_SENTRY_SOURCE] === undefined) {
         addNonEnumerableProperty(span as SentrySpanWithOtelSourceInference, '_sentryOtelInferSource', true);
@@ -195,7 +185,7 @@ class SentryTracer implements Tracer {
     };
 
     if (options.root) {
-      return startNewTrace(() => startInactiveSpan({ ...sentryOptions, parentSpan: null }));
+      return startNewTrace(() => _INTERNAL_startInactiveSpan({ ...sentryOptions, parentSpan: null }));
     }
 
     if (parentSpan?.spanContext().isRemote) {
@@ -203,17 +193,17 @@ class SentryTracer implements Tracer {
     }
 
     if (parentSpan) {
-      return startInactiveSpan({ ...sentryOptions, parentSpan: parentSpan as unknown as Span });
+      return _INTERNAL_startInactiveSpan({ ...sentryOptions, parentSpan: parentSpan as unknown as Span });
     }
 
-    return startInactiveSpan({
+    return _INTERNAL_startInactiveSpan({
       ...sentryOptions,
       parentSpan: hasExplicitContext ? null : undefined,
     });
   }
 
   private _startRootSpanWithRemoteParent(
-    options: Parameters<typeof startInactiveSpan>[0],
+    options: Parameters<typeof _INTERNAL_startInactiveSpan>[0],
     parentSpan: OpenTelemetrySpan,
   ): Span {
     const { spanId, traceId } = parentSpan.spanContext();
@@ -231,17 +221,14 @@ class SentryTracer implements Tracer {
       });
       _INTERNAL_setSpanForScope(scope, undefined);
 
-      return startInactiveSpan({ ...options, parentSpan: null });
+      return _INTERNAL_startInactiveSpan({ ...options, parentSpan: null });
     });
   }
 
   private _createNonRecordingSpan(parentSpan: OpenTelemetrySpan | undefined): OpenTelemetrySpan {
-    const span = new SentryNonRecordingSpan({
+    return new SentryNonRecordingSpan({
       traceId: parentSpan?.spanContext().traceId,
-    });
-    markSentryTraceProviderSpan(span);
-
-    return span as OpenTelemetrySpan;
+    }) as OpenTelemetrySpan;
   }
 }
 
